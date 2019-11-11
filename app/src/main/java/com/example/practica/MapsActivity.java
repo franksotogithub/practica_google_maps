@@ -259,10 +259,32 @@ public class MapsActivity extends FragmentActivity  implements OnMapReadyCallbac
 
         while(res.isAfterLast() == false) {
 
-            Log.d("geom",res.getString(res.getColumnIndex("geom")));
+            /*Log.d("geom",res.getString(res.getColumnIndex("geom")));
+
+            */
+
+            String campoGeom=res.getString(res.getColumnIndex("geom"));
+
+            String jsonFinal = "";
+
+            try {
+                JSONObject  geom = new JSONObject(campoGeom);
+                String rings=geom.get("coordinates").toString();
+                jsonFinal = "{\"rings\":"+ rings+", \"spatialReference\" : {\"wkid\" : 4326}}";
+                JSONObject obj = new JSONObject(jsonFinal);
+                Log.d("My App", obj.toString());
+
+            } catch (Throwable tx) {
+                Log.e("My App", "Could not parse malformed JSON: \"" + jsonFinal + "\"");
+            }
             res.moveToNext();
 
         }
+
+
+        //String json = "{\"phonetype\":3,\"cat\":4}";
+
+
         //return array_list;
     }
 
