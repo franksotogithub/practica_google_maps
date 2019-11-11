@@ -29,4 +29,5 @@ dependencies {
     implementation 'com.github.sevar83:android-spatialite:2.0.0'
     implementation 'com.google.maps.android:android-maps-utils:0.5'
     implementation 'com.cocoahero.android:geojson:1.0.1@jar'
+    implementation 'com.android.volley:volley:1.0.0'
 }

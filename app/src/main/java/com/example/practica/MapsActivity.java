@@ -19,6 +19,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
+import com.google.android.gms.common.api.Response;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -39,6 +40,7 @@ import com.google.maps.android.data.geojson.GeoJsonLineString;
 import com.google.maps.android.data.geojson.GeoJsonPoint;
 import com.google.maps.android.data.geojson.GeoJsonPolygon;
 
+import org.json.JSONObject;
 import org.spatialite.database.SQLiteDatabase;
 
 public class MapsActivity extends FragmentActivity  implements OnMapReadyCallback ,
@@ -246,13 +248,17 @@ public class MapsActivity extends FragmentActivity  implements OnMapReadyCallbac
         Log.d("query",query);
         Log.d("query",query);
         geoJsonPoligono.getCoordinates();
+
+
 */
 
 
         Cursor res = db.rawQuery( queryJson, null );
         res.moveToFirst();
+        String  finalres = "";
+
         while(res.isAfterLast() == false) {
-            //array_list.add(res.getString(res.getColumnIndex("name")));
+
             Log.d("geom",res.getString(res.getColumnIndex("geom")));
             res.moveToNext();
 
@@ -283,6 +289,9 @@ public class MapsActivity extends FragmentActivity  implements OnMapReadyCallbac
 
         }
     }
+
+
+
 
     /*private  void getCurrentLocation(){
         boolean isGPSEnable = mLocationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
