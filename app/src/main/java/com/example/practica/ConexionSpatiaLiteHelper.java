@@ -12,12 +12,13 @@ import java.util.ArrayList;
 public class ConexionSpatiaLiteHelper extends SQLiteOpenHelper {
 
     //final String CREAR_TABLA = "CREATE TABLE ";
-    private static final int DATABASE_VERSION = 3;
+    private static final int DATABASE_VERSION = 5;
     private static final String DATABASE_NAME = "geo_db2.sqlite";
     private static final String TABLE_NAME = "poligonos";
     private static final String KEY_ID = "geometry_column";
+    private static final String FLAG_EXPORT = "export";
     private static final String KEY_ID_TYPE = "POLYGON";
-
+    private static final String FLAG_EXPORT_TYPE = "INT";
     //private static final String KEY_ID = "geometry_column";
     //private static final String KEY_ID_TYPE = "POLYGON";
 
@@ -28,7 +29,7 @@ public class ConexionSpatiaLiteHelper extends SQLiteOpenHelper {
 
     @Override
     public void onCreate(SQLiteDatabase db) {
-        String CREATION_TABLE ="CREATE TABLE "+TABLE_NAME+"("+ KEY_ID+" "+KEY_ID_TYPE+")";
+        String CREATION_TABLE ="CREATE TABLE "+TABLE_NAME+"("+ KEY_ID+" "+KEY_ID_TYPE+","+FLAG_EXPORT+" "+FLAG_EXPORT_TYPE +" )";
         db.execSQL(CREATION_TABLE);
     }
 

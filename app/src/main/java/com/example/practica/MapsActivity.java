@@ -19,7 +19,19 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
-import com.google.android.gms.common.api.Response;
+import com.android.volley.AuthFailureError;
+import com.android.volley.NetworkResponse;
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.VolleyLog;
+import com.android.volley.toolbox.HttpHeaderParser;
+import com.android.volley.toolbox.JsonArrayRequest;
+import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
+import com.google.android.gms.common.util.Hex;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -28,8 +40,12 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
+import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 
 import com.google.android.gms.maps.MapView;
 import com.google.android.gms.maps.model.Polygon;
@@ -40,6 +56,7 @@ import com.google.maps.android.data.geojson.GeoJsonLineString;
 import com.google.maps.android.data.geojson.GeoJsonPoint;
 import com.google.maps.android.data.geojson.GeoJsonPolygon;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.spatialite.database.SQLiteDatabase;
 
@@ -49,6 +66,7 @@ public class MapsActivity extends FragmentActivity  implements OnMapReadyCallbac
     private Button btnSatellite;
     private Button btnNormal;
     private Button btnAgregar;
+    private Button btnExportar;
 
     private GoogleMap mMap;
     private static final int LOCATION_REQUEST_CODE  = 1 ;
@@ -69,12 +87,15 @@ public class MapsActivity extends FragmentActivity  implements OnMapReadyCallbac
 
     public static final int LOCATION_UPDATE_MIN_DISTANCE = 10;
     public static final int LOCATION_UPDATE_MIN_TIME = 5000;
+    private RequestQueue  mQueue;
 
-
-
+    private final static int COLOR_FILL_POLYGON = 0x7F00FF00;
+    private final static int COLOR_FILL_POLYGON_GREEN = 0x5500ff00;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        mQueue = Volley.newRequestQueue(this);
         setContentView(R.layout.activity_maps);
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
@@ -85,6 +106,7 @@ public class MapsActivity extends FragmentActivity  implements OnMapReadyCallbac
         btnSatellite = (Button) findViewById(R.id.btnSatellite);
         btnNormal = (Button) findViewById(R.id.btnNormal);
         btnAgregar = (Button) findViewById(R.id.btnAgregar);
+        btnExportar = (Button) findViewById(R.id.btnExportar);
 
         btnSatellite.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -100,14 +122,8 @@ public class MapsActivity extends FragmentActivity  implements OnMapReadyCallbac
             }
         });
 
-        /*View.OnClickListener onClickListener = new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
 
-            }
-        };*/
 
-        //conn = new ConexionSqlLiteHelper(this);
         conn = new ConexionSpatiaLiteHelper(this);
         db = conn.getWritableDatabase();
 
@@ -117,6 +133,7 @@ public class MapsActivity extends FragmentActivity  implements OnMapReadyCallbac
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)== PackageManager.PERMISSION_GRANTED){
             mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,LOCATION_UPDATE_MIN_TIME,LOCATION_UPDATE_MIN_DISTANCE,this);
         }
+
 
     }
 
@@ -178,8 +195,8 @@ public class MapsActivity extends FragmentActivity  implements OnMapReadyCallbac
 
 
         //mMap.setMyLocationEnabled(true);
-        line = mMap.addPolyline(new PolylineOptions());
-        poligon = mMap.addPolygon(new PolygonOptions().add(new LatLng(0, 0), new LatLng(0, 0), new LatLng(0, 0)).fillColor(Color.BLUE).strokeWidth(10));
+        //line = mMap.addPolyline(new PolylineOptions());
+        poligon = mMap.addPolygon(new PolygonOptions().add(new LatLng(0, 0), new LatLng(0, 0), new LatLng(0, 0)).fillColor(COLOR_FILL_POLYGON).strokeWidth(8));
 
 
         mMap.getUiSettings().setMyLocationButtonEnabled(true);
@@ -195,13 +212,25 @@ public class MapsActivity extends FragmentActivity  implements OnMapReadyCallbac
 
                 if(checkAgregar){
                     listPoints = new ArrayList<>();
+                    //poligon.setPoints(listPoints);
                     btnAgregar.setText("GUARDAR");
+
                 }
 
                 else{
                     agregarPoligono(newListPoints);
                     btnAgregar.setText("AGREGAR");
                 }
+
+            }
+        });
+
+        btnExportar.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                    exportarDatos();
+
 
             }
         });
@@ -217,11 +246,11 @@ public class MapsActivity extends FragmentActivity  implements OnMapReadyCallbac
 
         for (int i = 0; i <poligono.size() ; i++) {
             if (i >0){
-                format = format +"," + poligono.get(i).latitude+ " "+poligono.get(i).longitude;
+                format = format +"," + poligono.get(i).longitude+ " "+poligono.get(i).latitude;
 
             }
             else{
-                format = poligono.get(i).latitude+ " "+poligono.get(i).longitude;
+                format = poligono.get(i).longitude+ " "+poligono.get(i).latitude;
             }
 
         }
@@ -231,61 +260,161 @@ public class MapsActivity extends FragmentActivity  implements OnMapReadyCallbac
     }
 
     public  void agregarPoligono(ArrayList<LatLng> poligono){
-        //AGREGAR poligono
-        String query = "INSERT INTO poligonos(geometry_column) VALUES ( GeomFromText('POLYGON(("+formatGeom(poligono)+"))',4326));" ;
+        Polygon poligonAdd = mMap.addPolygon(new PolygonOptions().add(new LatLng(0, 0), new LatLng(0, 0), new LatLng(0, 0)).fillColor(COLOR_FILL_POLYGON_GREEN).strokeWidth(8));
+        poligonAdd.setPoints(poligono);
+        String query = "INSERT INTO poligonos(geometry_column,export) VALUES ( GeomFromText('POLYGON(("+formatGeom(poligono)+"))',4326),0);" ;
         Log.d("query",query);
         db.execSQL(query);
 
-        String queryJson = "SELECT AsGeoJSON(geometry_column) geom from poligonos;" ;
-        //db.execSQL(queryJson);
-        //GeoJsonLineString geoJsonPoligono = new GeoJsonLineString(poligono);
-        //ArrayList<ArrayList<LatLng>> final = {poligono} ;
-        /*ArrayList<ArrayList<LatLng>> poligonos = new ArrayList<>();
-        poligonos.add(poligono);
-
-        GeoJsonPolygon geoJsonPoligono = new GeoJsonPolygon(poligonos);
-        Log.d("query",geoJsonPoligono.getCoordinates().toString());
-        Log.d("query",query);
-        Log.d("query",query);
-        geoJsonPoligono.getCoordinates();
+    }
 
 
-*/
 
+    public void exportarDatos(){
 
+        String queryJson = "SELECT AsGeoJSON(geometry_column) geom from poligonos where export=0;" ;
         Cursor res = db.rawQuery( queryJson, null );
         res.moveToFirst();
-        String  finalres = "";
 
         while(res.isAfterLast() == false) {
 
-            /*Log.d("geom",res.getString(res.getColumnIndex("geom")));
-
-            */
-
             String campoGeom=res.getString(res.getColumnIndex("geom"));
 
-            String jsonFinal = "";
+            String stringJsonFinal = "";
 
             try {
                 JSONObject  geom = new JSONObject(campoGeom);
                 String rings=geom.get("coordinates").toString();
-                jsonFinal = "{\"rings\":"+ rings+", \"spatialReference\" : {\"wkid\" : 4326}}";
-                JSONObject obj = new JSONObject(jsonFinal);
-                Log.d("My App", obj.toString());
+                stringJsonFinal = "{\"geometry\":{\"rings\":"+ rings+", \"spatialReference\" : {\"wkid\" : 4326}}}";
+                JSONArray arrayGeom = new JSONArray();
+                //arrayGeom.put();
+                JSONObject obj = new JSONObject(stringJsonFinal);
+                arrayGeom.put(obj);
+                Log.d("My App", arrayGeom.toString());
+                insertarServicio(arrayGeom);
+
 
             } catch (Throwable tx) {
-                Log.e("My App", "Could not parse malformed JSON: \"" + jsonFinal + "\"");
+                Log.e("My App", "Could not parse malformed JSON: \"" + stringJsonFinal + "\"");
             }
+
+
+
             res.moveToNext();
 
         }
 
+        String queryJsonUpdate = "UPDATE poligonos SET export =1  where export=0;" ;
+        db.execSQL(queryJsonUpdate);
+    }
 
-        //String json = "{\"phonetype\":3,\"cat\":4}";
+
+    public void insertarServicio( final JSONArray arrayGeom)
+
+    {
+        String url = "http://arcgis4.inei.gob.pe:6080/arcgis/rest/services/DESARROLLO/servicio_prueba_captura/FeatureServer/0/addFeatures";
 
 
-        //return array_list;
+        StringRequest request = new StringRequest(Request.Method.POST, url, new Response.Listener<String>() {
+            @Override
+            public void onResponse(String response) {
+                Log.i("SUCCESS", response);
+            }
+        }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                Log.i("ERROR", error.toString());
+            }
+        }){
+
+            @Override
+            public String getBodyContentType() {
+                return "application/x-www-form-urlencoded; charset=utf-8";
+            }
+
+
+            @Override
+            protected Map<String, String> getParams() throws AuthFailureError {
+                Map<String, String> params = new HashMap<String, String>();
+                params.put("features", arrayGeom.toString());
+                params.put("f", "json");
+                return params;
+            }
+
+            /*@Override
+            public byte[] getBody() throws AuthFailureError{
+                try {
+                    return requestBody == null ? null : requestBody.getBytes("utf-8");
+                } catch (UnsupportedEncodingException uee) {
+                    VolleyLog.wtf("Unsupported Encoding while trying to get the bytes of %s using %s", requestBody, "utf-8");
+                    return null;
+                }
+            }*/
+
+            /*@Override
+            protected Response<String> parseNetworkResponse(NetworkResponse response) {
+                String responseString = "";
+                if (response != null) {
+                    responseString = String.valueOf(response.statusCode);
+                    // can get more details such as response.headers
+                }
+                return Response.success(responseString, HttpHeaderParser.parseCacheHeaders(response));
+            }*/
+
+
+
+
+        };
+
+
+
+
+
+
+/*
+        JsonArrayRequest request = new JsonArrayRequest(Request.Method.POST, url, arrayGeom,
+                new Response.Listener<JSONArray>() {
+                    @Override
+                    public void onResponse(JSONArray response) {
+                        Log.i("SUCCESS", response.toString());
+                    }
+                }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                Log.i("ERROR", error.toString());
+            }
+        }
+        );*/
+
+       /* JsonObjectRequest request = new JsonObjectRequest(Request.Method.GET, url, null,
+                new Response.Listener<JSONObject>() {
+                    @Override
+                    public void onResponse(JSONObject response) {
+                        try {
+                            JSONArray jsonArray = response.getJSONArray("employees");
+
+                            for (int i = 0; i < jsonArray.length(); i++) {
+                                JSONObject employee = jsonArray.getJSONObject(i);
+
+                                String firstName = employee.getString("firstname");
+                                int age = employee.getInt("age");
+                                String mail = employee.getString("mail");
+
+                                mTextViewResult.append(firstName + ", " + String.valueOf(age) + ", " + mail + "\n\n");
+                            }
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                error.printStackTrace();
+            }
+        });*/
+
+                mQueue.add(request);
+
     }
 
 
